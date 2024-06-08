@@ -37,7 +37,6 @@ def get_version_start(cycle_name):
     first_date = get_first_date(2000 + cycle_upper)
     if first_date < 1:
         return ""
-
     epoch = datetime(2000 + cycle_upper, 1, first_date, 9, 0, 0)
     epoch += timedelta(days=28 * (cycle_lower - 1))
     fmt1 = epoch.strftime("%Y-%m-%d")
