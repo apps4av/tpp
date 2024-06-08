@@ -75,8 +75,8 @@ def process_dcs(airport):
     # page is a new CS e.g. notices
     page = 0
     for pdf in pdfs:
+        fn = pdf.text.upper()
 
-        fn = pdf.text
         tokens = fn.split("_")
         base = ("CS-" + tokens[0]).upper()  # add region to name
 
@@ -90,6 +90,11 @@ def make_dcs():
         os.mkdir("afd")
     except FileExistsError:
         pass
+
+    # make all files upper case, FAA mixes cases
+    files = glob.glob("*.pdf")
+    for file in files:
+        os.rename(file, file.upper())
 
     airports = read_dcs_xml()
 
@@ -105,7 +110,7 @@ def make_dcs():
 
 def zip_dcs():
     # US geo regions
-    regions = ["AK", "EC", "NC", "NE", "NW", "PAC", "SC", "SE", "SW"]
+    regions = ["AK", "PAC", "NW", "SW", "NC", "EC", "SC", "NE", "SE"]
     zip_files = []
     manifest_files = []
 
