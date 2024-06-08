@@ -114,11 +114,12 @@ def zip_dcs():
     zip_files = []
     manifest_files = []
 
-    try:
-        for region in regions:
+    for region in regions:
+        try:
             os.remove("CS_" + region + ".zip")
-    except FileNotFoundError as e:
-        pass
+            os.remove("CS_" + region)
+        except FileNotFoundError as e:
+            pass
 
     for region in regions:
         zip_files.append(zipfile.ZipFile("CS_" + region + ".zip", "w"))

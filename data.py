@@ -3,7 +3,6 @@ import zipfile
 
 from tqdm import tqdm
 import common
-import time
 
 import cycle
 
