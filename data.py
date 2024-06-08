@@ -2,14 +2,9 @@ import os
 import zipfile
 
 from tqdm import tqdm
-
 import common
-import glob
 
 import cycle
-
-
-# Chart specific code
 
 # download
 start_date = cycle.get_version_start(cycle.get_cycle_download())  # to download which cycle
