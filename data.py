@@ -12,9 +12,18 @@ all_charts = [
     "https://nfdc.faa.gov/webContent/28DaySub/28DaySubscription_Effective_" + start_date + ".zip",
     "https://nfdc.faa.gov/webContent/28DaySub/" + start_date + "/aixm5.0.zip",
     "https://aeronav.faa.gov/Obst_Data/DAILY_DOF_DAT.ZIP",
-    "https://www.outerworldapps.com/WairToNowWork/avare_aptdiags.php"
+    "https://www.outerworldapps.com/WairToNowWork/avare_aptdiags.php",
 ]
+
+all_charts_2 = common.list_crawl("https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dafd/", "^http.*DCS_.*zip$")
+for nn in all_charts_2:
+    all_charts.append(nn)
+
 common.download_list(all_charts)
+
+# Do DCS
+common.make_dcs()
+common.zip_dcs()
 
 with zipfile.ZipFile("SAA-AIXM_5_Schema/SaaSubscriberFile.zip", 'r') as zip_ref:
     zip_ref.extractall(".")
