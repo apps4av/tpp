@@ -15,26 +15,7 @@ all_charts = [
     "https://www.outerworldapps.com/WairToNowWork/avare_aptdiags.php",
 ]
 
-all_charts_2 = common.list_crawl("https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dafd/", "^http.*DCS_.*zip$")
-for nn in all_charts_2:
-    all_charts.append(nn)
-
 common.download_list(all_charts)
 
-# Do DCS
-common.make_dcs()
-common.zip_dcs()
-
-with zipfile.ZipFile("SAA-AIXM_5_Schema/SaaSubscriberFile.zip", 'r') as zip_ref:
-    zip_ref.extractall(".")
-with zipfile.ZipFile("Saa_Sub_File.zip", 'r') as zip_ref:
-    zip_ref.extractall(".")
-
-for script in tqdm(["saa", "airport", "runway", "freq", "fix", "nav", "dof", "awos", "aw"], desc="Running PERL database files"):
-    common.call_perl_script(script)
-
-try:
-    os.unlink("main.db")
-except FileNotFoundError as e:
-    pass
-common.call_script("sqlite3 main.db < importother.sql")
+common.make_data()
+common.make_db()

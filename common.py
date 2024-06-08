@@ -101,7 +101,7 @@ def make_dcs():
     # submit 8 jobs at a time
     sub_lists = [airports[i:i + 8] for i in range(0, len(airports), 8)]
 
-    for sublist in tqdm(sub_lists):
+    for sublist in tqdm(sub_lists, desc="Processing DCS"):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [executor.submit(process_dcs, elem) for elem in sublist]
             # Collect the results
@@ -140,3 +140,38 @@ def zip_dcs():
     for count in range(len(regions)):
         zip_files[count].write("CS_" + regions[count])
         zip_files[count].close()
+
+
+def make_data():
+    with zipfile.ZipFile("SAA-AIXM_5_Schema/SaaSubscriberFile.zip", 'r') as zip_ref:
+        zip_ref.extractall(".")
+    with zipfile.ZipFile("Saa_Sub_File.zip", 'r') as zip_ref:
+        zip_ref.extractall(".")
+
+    # parse all FAA data
+    for script in tqdm(["saa", "airport", "runway", "freq", "fix", "nav", "dof", "awos", "aw"],
+                       desc="Running PERL database files"):
+        call_perl_script(script)
+
+
+def make_db():
+    try:
+        os.unlink("main.db")
+    except FileNotFoundError as e:
+        pass
+    call_script("sqlite3 main.db < importother.sql")
+
+    try:
+        os.remove("databases.zip")
+        os.remove("databases")
+    except FileNotFoundError as e:
+        pass
+
+    zip_file = zipfile.ZipFile("databases.zip", "w")
+    manifest_file = open("databases", "w+")
+    manifest_file.write(cycle.get_cycle() + "\n")
+    manifest_file.write("main.db\n")
+    manifest_file.close()
+    zip_file.write("databases")
+    zip_file.write("main.db")
+    zip_file.close()

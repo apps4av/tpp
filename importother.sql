@@ -25,14 +25,6 @@ CREATE TABLE fix(LocationID Text,ARPLatitude float,ARPLongitude float,Type Text,
 CREATE TABLE obs(ARPLatitude float,ARPLongitude float,Height float);
 .import dof.csv obs 
 
-CREATE TABLE takeoff(LocationID Text,File Text);
-
-.import mins/to.csv takeoff
-
-CREATE TABLE alternate(LocationID Text,File Text);
-
-.import mins/alt.csv alternate
-
 CREATE TABLE awos(LocationID Text, Type Text, Status Text, Latitude float,Longitude float, Elevation Text, Frequency1 Text, Frequency2 Text, Telephone1 Text, Telephone2 Text, Remark Text);
 
 .import awos.csv awos
