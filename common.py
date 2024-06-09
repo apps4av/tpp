@@ -191,30 +191,36 @@ def process_plates(ad_tags):
     except FileExistsError:
         pass
 
-    # submit 5 jobs at a time
     all_states = root.findall('state_code')
-    sub_lists = [all_states[i:i + 5] for i in range(0, len(all_states), 5)]
+    for state in tqdm(all_states, desc="Processing states"):
+        process_plate_state(state, ad_tags)
 
-    for sublist in tqdm(sub_lists, desc="Processing DCS"):
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [executor.submit(process_plate_state, elem, ad_tags) for elem in sublist]
-            # Collect the results
-            [future.result() for future in concurrent.futures.as_completed(futures)]
+
+def process_plate_city(city, state_id, ad_tags):
+    for airport in city.findall('airport_name'):
+        apt_id = airport.get('apt_ident')
+        for record in airport.findall('record'):
+            name = record.find('chart_name').text.upper()
+            code = record.find('chart_code').text.upper()
+            pdf = record.find('pdf_name').text.upper()
+            out_name = code + "-" + state_id + "-" + name  # remove / from name
+            out_name = out_name.replace("/", " AND ")
+            dir_name = "plates/" + apt_id
+            make_plate(dir_name, out_name, pdf, apt_id, ad_tags)
 
 
 def process_plate_state(state, ad_tags):
     state_id = state.attrib["ID"]
-    for city in tqdm(state.findall('city_name'), desc="Processing " + state_id):
-        for airport in city.findall('airport_name'):
-            apt_id = airport.get('apt_ident')
-            for record in airport.findall('record'):
-                name = record.find('chart_name').text.upper()
-                code = record.find('chart_code').text.upper()
-                pdf = record.find('pdf_name').text.upper()
-                out_name = code + "-" + state_id + "-" + name  # remove / from name
-                out_name = out_name.replace("/", " AND ")
-                dir_name = "plates/" + apt_id
-                make_plate(dir_name, out_name, pdf, apt_id, ad_tags)
+
+    all_cities = state.findall('city_name')
+    # submit 8 jobs at a time
+    sub_lists = [all_cities[i:i + 8] for i in range(0, len(all_cities), 8)]
+
+    for sublist in tqdm(sub_lists, desc="Processing cities"):
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(process_plate_city, elem, state_id, ad_tags) for elem in sublist]
+            # Collect the results
+            [future.result() for future in concurrent.futures.as_completed(futures)]
 
 
 def parse_size(string):
@@ -242,11 +248,13 @@ def find_page(pdf_name, apt_id):
     reader = pypdf.PdfReader(pdf_name)
     num_pages = len(reader.pages)
     string = r"\(" + apt_id + r"\)"
+    string2 = r"\(K" + apt_id + r"\)"  # for K airports, FAA inconsistency
     # extract text and do the search
     for page in reader.pages:
         text = page.extract_text()
         res_search = re.search(string, text)
-        if res_search is not None:
+        res_search2 = re.search(string2, text)
+        if (res_search is not None) or (res_search2 is not None):
             return page.page_number
     return -1
 
@@ -256,6 +264,10 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
         os.mkdir(folder)
     except FileExistsError as e:
         pass
+
+    png_file = "'" + folder + "/" + plate_name + ".png'"
+    tif_file = png_file.replace(".png", ".tif")
+    basic_options = "mogrify -quiet -dither none -antialias -depth 8 -quality 00 -background white -alpha remove -colors 15 -density 150 -format png "
 
     no_proj = gdal.Info(plate_pdf)
     no_proj = (no_proj.find("PROJCRS") < 0)
@@ -267,31 +279,31 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
                 comment = ad_tags[apt_id]
             except Exception as e:
                 comment = ""
-            call_script("mogrify -quiet -dither none -antialias -depth 8 -quality 00 -background white -alpha remove -colors 15 -format png -set Comment '" + comment + "' -write '" + folder + "/" + plate_name + ".png' " + plate_pdf)
+            call_script(basic_options + "-set Comment '" + comment + "' -write " + png_file + " " + plate_pdf)
 
         elif plate_name.startswith("MIN-"):
             # only export relevant page
             page = find_page(plate_pdf, apt_id)
             if page == -1:
                 # these are probably radar minimums, add
-                call_script("mogrify -dither none -antialias -depth 8 -quality 00 -background white -alpha remove -colors 15 -density 150 -format png -write '" + folder + "/" + plate_name + ".png' " + plate_pdf)
+                call_script(basic_options + "-write " + png_file + " " + plate_pdf)
             else:
                 # find if minimums file already exists
                 file = plate_pdf.replace(".PDF", "") + "-" + str(page) + ".png"
                 if os.path.isfile(file):
-                    call_script("cp " + file + " '" + folder + "/" + plate_name + ".png'")
+                    call_script("cp " + file + " " + png_file)
 
                 else:
-                    call_script("mogrify -dither none -antialias -depth 8 -quality 00 -background white -alpha remove -colors 15 -density 150 -format png " + plate_pdf)
+                    call_script(basic_options + plate_pdf)
 
         else:
             # left over, just include
-            call_script("mogrify -dither none -antialias -depth 8 -quality 00 -background white -alpha remove -colors 15 -density 150 -format png -write '" + folder + "/" + plate_name + ".png' " + plate_pdf)
+            call_script(basic_options + "-write " + png_file + " " + plate_pdf)
 
     else:
         # geo tagged plate
-        call_script("gdalwarp -q -r lanczos -t_srs epsg:3857 " + plate_pdf + " '" + folder + "/" + plate_name + ".tif' > /dev/null")
-        tmp = gdal.Info(gdal.Open(folder + "/" + plate_name + ".tif")).split("\n")
+        call_script("gdalwarp -q -r lanczos -t_srs epsg:3857 " + plate_pdf + " " + tif_file + " > /dev/null")
+        tmp = gdal.Info(gdal.Open(tif_file.replace("'", ""))).split("\n")
         upper_left = ([s for s in tmp if s.startswith("Upper Left")])
         lower_right = ([s for s in tmp if s.startswith("Lower Right")])
         size = ([s for s in tmp if s.startswith("Size")])
@@ -299,8 +311,8 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
         (x0, y0) = parse_coordinate(lower_right[0])
         (w, h) = parse_size(size[0])
         comment = str(w / (x0 - x)) + '|' + str(h / (y0 - y)) + '|' + str(x) + '|' + str(y)
-        # convert to png and add geo tag to it under Comment
-        call_script("mogrify -quiet -dither none -antialias -depth 8 -quality 00 -background white -alpha remove -colors 15 -format png -set Comment '" + comment + "' '" + folder + "/" + plate_name + ".tif'")
+        # convert to png and add geotag to it under Comment
+        call_script(basic_options + "-set Comment '" + comment + "' " + tif_file)
 
 
 def zip_plates():
