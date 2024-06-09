@@ -12,6 +12,7 @@ import concurrent.futures
 import cycle
 import pypdf
 
+
 def list_crawl(url, match):
     charts = []
     html_page = urllib.request.urlopen(url)
@@ -59,14 +60,14 @@ def read_dcs_xml():
 
 
 def process_dcs(airport):
-    aptid = airport.find('aptid').text
+    apt_id = airport.find('aptid').text
     pages = airport.find('pages')
     pdfs = pages.findall('pdf')
 
-    if aptid is None:
+    if apt_id is None:
         return
 
-    apt_dir = "afd/" + aptid
+    apt_dir = "afd/" + apt_id
     try:
         os.mkdir(apt_dir)
     except FileExistsError:
@@ -216,7 +217,7 @@ def process_plate_state(state, ad_tags):
     # submit 8 jobs at a time
     sub_lists = [all_cities[i:i + 8] for i in range(0, len(all_cities), 8)]
 
-    for sublist in tqdm(sub_lists, desc="Processing cities"):
+    for sublist in tqdm(sub_lists, desc="Processing cities of " + state_id):
         with concurrent.futures.ThreadPoolExecutor() as executor:
             futures = [executor.submit(process_plate_city, elem, state_id, ad_tags) for elem in sublist]
             # Collect the results
@@ -292,9 +293,9 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
                 file = plate_pdf.replace(".PDF", "") + "-" + str(page) + ".png"
                 if os.path.isfile(file):
                     call_script("cp " + file + " " + png_file)
-
                 else:
                     call_script(basic_options + plate_pdf)
+                    call_script("cp " + file + " " + png_file)
 
         else:
             # left over, just include
@@ -316,4 +317,32 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
 
 
 def zip_plates():
-    pass
+    state_codes = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY",
+                   "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND",
+                   "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "XX"]
+    for state in state_codes:
+        file_list = glob.glob("plates/**/*-" + state + "-*.png", recursive=True)
+
+        try:
+            os.remove("TPP_" + state + ".zip")
+        except FileNotFoundError as e:
+            pass
+
+        try:
+            os.remove("TPP_" + state)
+        except FileNotFoundError as e:
+            pass
+
+        zip_file = zipfile.ZipFile("TPP_" + state + ".zip", "w")
+        manifest_file = open("TPP_" + state, "w+")
+
+        manifest_file.write(cycle.get_cycle() + "\n")
+
+        for ff in tqdm(file_list, desc="Zipping TPP_" + state):
+            zip_file.write(ff)
+            manifest_file.write(ff + "\n")
+
+        manifest_file.close()
+        zip_file.write("TPP_" + state)
+        zip_file.close()
+
