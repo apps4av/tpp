@@ -35,12 +35,12 @@ jobs:
       with:
         name: CS
         path: |
-          CS_AK_*.zip
-          CS_PAC_*.zip
-          CS_NW_*.zip
-          CS_SW_*.zip
-          CS_NC_*.zip
-          CS_EC_*.zip
-          CS_SC_*.zip
-          CS_NE_*.zip
-          CS_SE_*.zip
+          CS_AK.zip
+          CS_PAC.zip
+          CS_NW.zip
+          CS_SW.zip
+          CS_NC.zip
+          CS_EC.zip
+          CS_SC.zip
+          CS_NE.zip
+          CS_SE.zip
