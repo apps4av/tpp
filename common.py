@@ -2,8 +2,7 @@ import glob
 import os
 import urllib.request
 import re
-from subprocess import check_call
-from osgeo import gdal
+from subprocess import check_call, check_output
 from bs4 import BeautifulSoup
 import zipfile
 from tqdm import tqdm
@@ -44,6 +43,10 @@ def download_list(charts):
 
 def call_script(script):
     check_call([script], shell=True)
+
+
+def call_script_return(script):
+    return check_output([script], shell=True, encoding='utf8').strip()
 
 
 def call_perl_script(script):
@@ -270,8 +273,8 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
     tif_file = png_file.replace(".png", ".tif")
     basic_options = "mogrify -quiet -dither none -antialias -depth 8 -quality 00 -background white -alpha remove -colors 15 -density 150 -format png "
 
-    no_proj = gdal.Info(plate_pdf)
-    no_proj = (no_proj.find("PROJCRS") < 0)
+    no_proj = call_script_return("gdalinfo " + plate_pdf)
+    no_proj = "PROJCRS" not in no_proj
 
     if no_proj:
         if plate_name.startswith("APD-"):
@@ -293,6 +296,9 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
                 file = plate_pdf.replace(".PDF", "") + "-" + str(page) + ".png"
                 if os.path.isfile(file):
                     call_script("cp " + file + " " + png_file)
+                # when 1 page in PDF, do not add -0
+                elif os.path.isfile(plate_pdf.replace(".PDF", ".png")) and page == 0:
+                    call_script("cp " + plate_pdf.replace(".PDF", ".png") + " " + png_file)
                 else:
                     call_script(basic_options + plate_pdf)
                     call_script("cp " + file + " " + png_file)
@@ -304,7 +310,7 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
     else:
         # geo tagged plate
         call_script("gdalwarp -q -r lanczos -t_srs epsg:3857 " + plate_pdf + " " + tif_file + " > /dev/null")
-        tmp = gdal.Info(gdal.Open(tif_file.replace("'", ""))).split("\n")
+        tmp = call_script_return("gdalinfo " + tif_file).split("\n")
         upper_left = ([s for s in tmp if s.startswith("Upper Left")])
         lower_right = ([s for s in tmp if s.startswith("Lower Right")])
         size = ([s for s in tmp if s.startswith("Size")])
