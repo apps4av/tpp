@@ -25,7 +25,7 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         sudo apt-get install imagemagick ghostscript gdal-bin python3-gdal libgdal-dev
-        pip install bs4 tqdm numpy regex urllib3 glob2 elementpath pypdf osgeo
+        pip install bs4 tqdm numpy regex urllib3 glob2 elementpath pypdf gdal
     - name: Build databases
       run: |
         python3 data.py
