@@ -71,10 +71,7 @@ def process_dcs(airport):
         return
 
     apt_dir = "afd/" + apt_id
-    try:
-        os.mkdir(apt_dir)
-    except FileExistsError:
-        pass
+    os.makedirs(apt_dir, exist_ok=True)
 
     # page is a new CS e.g. notices
     page = 0
@@ -90,10 +87,7 @@ def process_dcs(airport):
 
 
 def make_dcs():
-    try:
-        os.mkdir("afd")
-    except FileExistsError:
-        pass
+    os.makedirs("afd", exist_ok=True)
 
     # make all files upper case, FAA mixes cases
     files = glob.glob("*.pdf")
@@ -190,10 +184,7 @@ def process_plates(ad_tags):
     for file in files:
         os.rename(file, file.upper())
 
-    try:
-        os.mkdir("plates")
-    except FileExistsError:
-        pass
+    os.makedirs("plates", exist_ok=True)
 
     all_states = root.findall('state_code')
     for state in tqdm(all_states, desc="Processing states"):
@@ -227,17 +218,17 @@ def process_plate_state(state, ad_tags):
             [future.result() for future in concurrent.futures.as_completed(futures)]
 
 
-def parse_size(string):
+def parse_plate_size(string):
     string = string.replace(" ", "")
     match = re.match(r"^[a-zA-Z]*(\d+),(\d+)", string)
     return float(match.group(1)), float(match.group(2))
 
 
-def parse_coordinate(string):
+def parse_plate_coordinate(string):
     string = string.replace(" ", "")
     match = re.match(r"^[a-zA-Z0-9 ]+\(.*\)\((.*)\)", string)
-    coords = match.group(1)
-    match_lon = re.match(r"^([0-9]+)d([0-9]+)'([0-9.]+)\"([E|W]),([0-9]+)d([0-9]+)'([0-9.]+)\"([N|S])", coords)
+    coordinate = match.group(1)
+    match_lon = re.match(r"^([0-9]+)d([0-9]+)'([0-9.]+)\"([E|W]),([0-9]+)d([0-9]+)'([0-9.]+)\"([N|S])", coordinate)
     lon = (float(match_lon.group(1)) + float(match_lon.group(2)) / 60 + float(match_lon.group(3)) / 3600)
     if match_lon.group(4) == "W":
         lon = lon * -1
@@ -248,9 +239,8 @@ def parse_coordinate(string):
     return lon, lat
 
 
-def find_page(pdf_name, apt_id):
+def find_plate_page(pdf_name, apt_id):
     reader = pypdf.PdfReader(pdf_name)
-    num_pages = len(reader.pages)
     string = r"\(" + apt_id + r"\)"
     string2 = r"\(K" + apt_id + r"\)"  # for K airports, FAA inconsistency
     # extract text and do the search
@@ -263,11 +253,16 @@ def find_page(pdf_name, apt_id):
     return -1
 
 
+def extract_plate_page(pdf_path, page_number, output_path):
+    pdf_reader = pypdf.PdfReader(pdf_path)
+    pdf_writer = pypdf.PdfWriter()
+    pdf_writer.add_page(pdf_reader.get_page(page_number))
+    with open(output_path, 'wb+') as output_pdf:
+        pdf_writer.write(output_pdf)
+
+
 def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
-    try:
-        os.mkdir(folder)
-    except FileExistsError as e:
-        pass
+    os.makedirs(folder, exist_ok=True)
 
     png_file = "'" + folder + "/" + plate_name + ".png'"
     tif_file = png_file.replace(".png", ".tif")
@@ -279,32 +274,21 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
     if no_proj:
         if plate_name.startswith("APD-"):
             # add geotag in airport diagram
-            try:
-                comment = ad_tags[apt_id]
-            except Exception as e:
-                comment = ""
+            comment = ad_tags.get(apt_id, "")
             call_script(basic_options + "-set Comment '" + comment + "' -write " + png_file + " " + plate_pdf)
 
         elif plate_name.startswith("MIN-"):
             # only export relevant page
-            page = find_page(plate_pdf, apt_id)
+            page = find_plate_page(plate_pdf, apt_id)
             if page == -1:
                 # these are probably radar minimums, add
                 call_script(basic_options + "-write " + png_file + " " + plate_pdf)
             else:
-                # find if minimums file already exists
-                file = plate_pdf.replace(".PDF", "") + "-" + str(page) + ".png"
-                if os.path.isfile(file):
-                    call_script("cp " + file + " " + png_file)
-                # when 1 page in PDF, do not add -0
-                elif os.path.isfile(plate_pdf.replace(".PDF", ".png")) and page == 0:
-                    call_script("cp " + plate_pdf.replace(".PDF", ".png") + " " + png_file)
-                else:
-                    call_script(basic_options + plate_pdf)
-                    call_script("cp " + file + " " + png_file)
-
+                page_file = plate_pdf.replace(".PDF", "_" + str(page) + ".PDF")
+                extract_plate_page(plate_pdf, page, page_file)
+                call_script(basic_options + "-write " + png_file + " " + page_file)
         else:
-            # left over, just include
+            # not a min, or apd, just include
             call_script(basic_options + "-write " + png_file + " " + plate_pdf)
 
     else:
@@ -314,9 +298,9 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
         upper_left = ([s for s in tmp if s.startswith("Upper Left")])
         lower_right = ([s for s in tmp if s.startswith("Lower Right")])
         size = ([s for s in tmp if s.startswith("Size")])
-        (x, y) = parse_coordinate(upper_left[0])
-        (x0, y0) = parse_coordinate(lower_right[0])
-        (w, h) = parse_size(size[0])
+        (x, y) = parse_plate_coordinate(upper_left[0])
+        (x0, y0) = parse_plate_coordinate(lower_right[0])
+        (w, h) = parse_plate_size(size[0])
         comment = str(w / (x0 - x)) + '|' + str(h / (y0 - y)) + '|' + str(x) + '|' + str(y)
         # convert to png and add geotag to it under Comment
         call_script(basic_options + "-set Comment '" + comment + "' " + tif_file)
