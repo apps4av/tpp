@@ -254,6 +254,11 @@ def find_plate_pages(pdf_name, apt_id):
 
 
 def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
+    # FAA sometimes adds files like DELETE_THIS.PDF in xml
+    if not os.path.isfile(plate_pdf):
+        print("\n **** Warning: File not found: " + plate_pdf + " ****\n")
+        return
+
     os.makedirs(folder, exist_ok=True)
 
     png_file = "'" + folder + "/" + plate_name + ".png'"
