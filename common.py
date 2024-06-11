@@ -267,7 +267,8 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
         if plate_name.startswith("APD-"):
             # add geotag in airport diagram
             comment = ad_tags.get(apt_id, "")
-            call_script(basic_options + "-set Comment '" + comment + "' -write " + png_file + " " + plate_pdf)
+            call_script(basic_options + " -write " + png_file + " " + plate_pdf)
+            call_script("exiftool -q -overwrite_original_in_place -UserComment='" + comment + "' " + png_file + " 2> /dev/null")
 
         elif plate_name.startswith("MIN-"):
             # only export relevant page
@@ -288,7 +289,7 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
 
     else:
         # geo tagged plate
-        call_script("gdalwarp -q -r lanczos -t_srs epsg:3857 " + plate_pdf + " " + tif_file + " > /dev/null")
+        call_script("gdalwarp -q -r lanczos -t_srs epsg:3857 " + plate_pdf + " " + tif_file + " 2> /dev/null")
         tmp = call_script_return("gdalinfo " + tif_file).split("\n")
         upper_left = ([s for s in tmp if s.startswith("Upper Left")])
         lower_right = ([s for s in tmp if s.startswith("Lower Right")])
@@ -298,7 +299,8 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
         (w, h) = parse_plate_size(size[0])
         comment = str(w / (x0 - x)) + '|' + str(h / (y0 - y)) + '|' + str(x) + '|' + str(y)
         # convert to png and add geotag to it under Comment
-        call_script(basic_options + "-set Comment '" + comment + "' " + tif_file)
+        call_script(basic_options + " " + tif_file)
+        call_script("exiftool -q -overwrite_original_in_place -UserComment='" + comment + "' " + png_file + " 2> /dev/null")
 
 
 def zip_plates():
