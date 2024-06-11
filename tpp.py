@@ -4,7 +4,7 @@ import cycle
 
 start_date = cycle.get_version_start(cycle.get_cycle_download())  # to download which cycle
 
-all_charts = common.list_crawl("https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dtpp/", "^http.*DDTPP[A-E]+_" + start_date.replace("-", "")[2:] +  ".zip$")
+all_charts = common.list_crawl("https://www.faa.gov/air_traffic/flight_info/aeronav/digital_products/dtpp/", "^http.*DDTPP[A-E]+_" + start_date.replace("-", "")[2:] + ".zip$")
 all_charts.append("https://www.outerworldapps.com/WairToNowWork/avare_aptdiags.php")
 # download
 common.download_list(all_charts)

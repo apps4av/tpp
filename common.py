@@ -206,7 +206,6 @@ def process_plate_city(city, state_id, ad_tags):
 
 def process_plate_state(state, ad_tags):
     state_id = state.attrib["ID"]
-
     all_cities = state.findall('city_name')
     # submit 8 jobs at a time
     sub_lists = [all_cities[i:i + 8] for i in range(0, len(all_cities), 8)]
@@ -239,7 +238,8 @@ def parse_plate_coordinate(string):
     return lon, lat
 
 
-def find_plate_page(pdf_name, apt_id):
+def find_plate_pages(pdf_name, apt_id):
+    pages = []
     reader = pypdf.PdfReader(pdf_name)
     string = r"\(" + apt_id + r"\)"
     string2 = r"\(K" + apt_id + r"\)"  # for K airports, FAA inconsistency
@@ -249,16 +249,8 @@ def find_plate_page(pdf_name, apt_id):
         res_search = re.search(string, text)
         res_search2 = re.search(string2, text)
         if (res_search is not None) or (res_search2 is not None):
-            return page.page_number
-    return -1
-
-
-def extract_plate_page(pdf_path, page_number, output_path):
-    pdf_reader = pypdf.PdfReader(pdf_path)
-    pdf_writer = pypdf.PdfWriter()
-    pdf_writer.add_page(pdf_reader.get_page(page_number))
-    with open(output_path, 'wb+') as output_pdf:
-        pdf_writer.write(output_pdf)
+            pages.append(page.page_number)
+    return pages
 
 
 def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
@@ -266,7 +258,7 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
 
     png_file = "'" + folder + "/" + plate_name + ".png'"
     tif_file = png_file.replace(".png", ".tif")
-    basic_options = "mogrify -quiet -dither none -antialias -depth 8 -quality 00 -background white -alpha remove -colors 15 -density 150 -format png "
+    basic_options = "mogrify -quiet -dither none -antialias -depth 8 -quality 100 -background white -alpha remove -colors 15 -density 150 -format png "
 
     no_proj = call_script_return("gdalinfo " + plate_pdf)
     no_proj = "PROJCRS" not in no_proj
@@ -275,25 +267,29 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
         if plate_name.startswith("APD-"):
             # add geotag in airport diagram
             comment = ad_tags.get(apt_id, "")
-            call_script(basic_options + "-set Comment '" + comment + "' -write " + png_file + " " + plate_pdf)
+            call_script(basic_options + " -write " + png_file + " " + plate_pdf)
+            call_script("exiftool -q -overwrite_original_in_place -UserComment='" + comment + "' " + png_file + " 2> /dev/null")
 
         elif plate_name.startswith("MIN-"):
             # only export relevant page
-            page = find_plate_page(plate_pdf, apt_id)
-            if page == -1:
+            pages = find_plate_pages(plate_pdf, apt_id)
+            if len(pages) == 0:
                 # these are probably radar minimums, add
                 call_script(basic_options + "-write " + png_file + " " + plate_pdf)
             else:
-                page_file = plate_pdf.replace(".PDF", "_" + str(page) + ".PDF")
-                extract_plate_page(plate_pdf, page, page_file)
-                call_script(basic_options + "-write " + png_file + " " + page_file)
+                # T/O and ALT minimums
+                index = 1
+                for page in pages:
+                    # do not replace with mogrify as that causes exception (probably due to delegate to gs)
+                    call_script("gs -dNOPAUSE -dQUIET -dNOPROMPT -sDEVICE=pnggray -r150" + " -dFirstPage=" + str(page + 1) + " -dLastPage=" + str(page + 1) + " -o " + png_file.replace(".png", "-" + str(page) + ".png") + " " + plate_pdf)
+                    index = index + 1
         else:
             # not a min, or apd, just include
             call_script(basic_options + "-write " + png_file + " " + plate_pdf)
 
     else:
         # geo tagged plate
-        call_script("gdalwarp -q -r lanczos -t_srs epsg:3857 " + plate_pdf + " " + tif_file + " > /dev/null")
+        call_script("gdalwarp -q -r lanczos -t_srs epsg:3857 " + plate_pdf + " " + tif_file + " 2> /dev/null")
         tmp = call_script_return("gdalinfo " + tif_file).split("\n")
         upper_left = ([s for s in tmp if s.startswith("Upper Left")])
         lower_right = ([s for s in tmp if s.startswith("Lower Right")])
@@ -303,7 +299,8 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
         (w, h) = parse_plate_size(size[0])
         comment = str(w / (x0 - x)) + '|' + str(h / (y0 - y)) + '|' + str(x) + '|' + str(y)
         # convert to png and add geotag to it under Comment
-        call_script(basic_options + "-set Comment '" + comment + "' " + tif_file)
+        call_script(basic_options + " " + tif_file)
+        call_script("exiftool -q -overwrite_original_in_place -UserComment='" + comment + "' " + png_file + " 2> /dev/null")
 
 
 def zip_plates():
