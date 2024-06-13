@@ -11,6 +11,18 @@ import concurrent.futures
 import cycle
 import pypdf
 
+states_in_regions = {
+    "AK":  ["AK",],
+    "PAC": ["HI", "XX"],
+    "NW":  ["WA", "MT", "WY", "ID", "OR"],
+    "SW":  ["CA", "NV", "UT", "CO", "NM", "AZ"],
+    "NC":  ["ND", "MN", "IA", "MO", "KS", "NE", "SD"],
+    "EC":  ["WI", "MI", "OH", "IN", "IL"],
+    "SC":  ["OK", "AR", "MS", "LA", "TX"],
+    "NE":  ["NY", "ME", "VT", "NH", "MA", "RI", "CT", "NJ", "DE", "MD", "DC", "VA", "WV", "PA"],
+    "SE":  ["KY", "NC", "SC", "GA", "FL", "AL", "TN", "PR", "VI"]
+}
+
 
 def list_crawl(url, match):
     charts = []
@@ -108,7 +120,7 @@ def make_dcs():
 
 def zip_dcs():
     # US geo regions
-    regions = ["AK", "PAC", "NW", "SW", "NC", "EC", "SC", "NE", "SE"]
+    regions = list(states_in_regions.keys())
     zip_files = []
     manifest_files = []
 
@@ -175,7 +187,10 @@ def make_db():
     zip_file.close()
 
 
-def process_plates(ad_tags):
+def process_plates(ad_tags, region):
+
+    states = states_in_regions[region]
+
     tree = et.parse('d-TPP_Metafile.xml')
     root = tree.getroot()
 
@@ -186,9 +201,11 @@ def process_plates(ad_tags):
 
     os.makedirs("plates", exist_ok=True)
 
+    # only process this region
     all_states = root.findall('state_code')
     for state in tqdm(all_states, desc="Processing states"):
-        process_plate_state(state, ad_tags)
+        if state.attrib["ID"] in states:
+            process_plate_state(state, ad_tags)
 
 
 def process_plate_city(city, state_id, ad_tags):
@@ -308,10 +325,8 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
         call_script("exiftool -q -overwrite_original_in_place -UserComment='" + comment + "' " + png_file + " 2> /dev/null")
 
 
-def zip_plates():
-    state_codes = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY",
-                   "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND",
-                   "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "XX"]
+def zip_plates(region):
+    state_codes = states_in_regions[region]
     for state in state_codes:
         file_list = glob.glob("plates/**/*-" + state + "-*.png", recursive=True)
 
