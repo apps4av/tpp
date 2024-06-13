@@ -1,6 +1,9 @@
 import common
 
 import cycle
+import sys
+
+region = sys.argv[1]  # must specify one of 9 regions for which to do plates
 
 start_date = cycle.get_version_start(cycle.get_cycle_download())  # to download which cycle
 
@@ -16,11 +19,5 @@ with open("avare_aptdiags.php") as f:
         (key, val0, val1, val2, val3, val4, val5, val6, val7, val8, val9, val10, val11) = line.rstrip().split(",")
         d[str(key)] = val6 + "," + val7 + "," + val8 + "," + val9 + "," + val10 + "," + val11
 
-common.process_plates(d, "NE")
-common.zip_plates("NE")
-
-
-
-
-
-
+common.process_plates(d, region)
+common.zip_plates(region)
