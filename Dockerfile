@@ -11,4 +11,4 @@ COPY *.pl /tmp/
 COPY *.sql /tmp/
 RUN ls /tmp/
 
-CMD ["python3", "data.py"]
+CMD ["python3", "dtpp.py NE"]
