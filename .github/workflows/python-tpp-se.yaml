@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: TPP SE
+name: TPP-SE
 
 on:
   pull_request:
@@ -33,6 +33,16 @@ jobs:
     - name: Upload release
       uses: actions/upload-artifact@v4
       with:
-        name: TPP_SE
+        name: SE_TPP
         path: |
-          TPP_*.zip
+          SE_TPP.zip
+
+    - name: SSH to mamba
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: apps4av.org
+        username: apps4av
+        password: ${{ secrets.MAMBA_PASSWORD }}
+        port: 22
+        source: "SE_TPP.zip"
+        target: /home/apps4av/mamba.dreamhosters.com/new/staging

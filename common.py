@@ -205,29 +205,30 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
 
 def zip_plates(region):
     state_codes = states_in_regions[region]
+    file_list = []
     for state in state_codes:
-        file_list = glob.glob("plates/**/*-" + state + "-*.png", recursive=True)
+        file_list.append(glob.glob("plates/**/*-" + state + "-*.png", recursive=True))
 
-        try:
-            os.remove("TPP_" + state + ".zip")
-        except FileNotFoundError as e:
-            pass
+    try:
+        os.remove(region + "_TPP" + ".zip")
+    except FileNotFoundError as e:
+        pass
 
-        try:
-            os.remove("TPP_" + state)
-        except FileNotFoundError as e:
-            pass
+    try:
+        os.remove(region + "_TPP")
+    except FileNotFoundError as e:
+        pass
 
-        zip_file = zipfile.ZipFile("TPP_" + state + ".zip", "w")
-        manifest_file = open("TPP_" + state, "w+")
+    zip_file = zipfile.ZipFile(region + "_TPP" + ".zip", "w")
+    manifest_file = open(region + "_TPP", "w+")
 
-        manifest_file.write(cycle.get_cycle() + "\n")
+    manifest_file.write(cycle.get_cycle() + "\n")
 
-        for ff in tqdm(file_list, desc="Zipping TPP_" + state):
-            zip_file.write(ff)
-            manifest_file.write(ff + "\n")
+    for ff in tqdm(file_list, desc="Zipping " + region + "_TPP"):
+        zip_file.write(ff)
+        manifest_file.write(ff + "\n")
 
-        manifest_file.close()
-        zip_file.write("TPP_" + state)
-        zip_file.close()
+    manifest_file.close()
+    zip_file.write(region + "_TPP")
+    zip_file.close()
 
