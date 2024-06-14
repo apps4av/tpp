@@ -207,7 +207,9 @@ def zip_plates(region):
     state_codes = states_in_regions[region]
     file_list = []
     for state in state_codes:
-        file_list.append(glob.glob("plates/**/*-" + state + "-*.png", recursive=True))
+        state_list = glob.glob("plates/**/*-" + state + "-*.png", recursive=True)
+        for ff in state_list:
+            file_list.append(ff)
 
     try:
         os.remove(region + "_TPP" + ".zip")
