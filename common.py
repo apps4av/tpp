@@ -197,7 +197,7 @@ def make_plate(folder, plate_name, plate_pdf, apt_id, ad_tags):
         (x, y) = parse_plate_coordinate(upper_left[0])
         (x0, y0) = parse_plate_coordinate(lower_right[0])
         (w, h) = parse_plate_size(size[0])
-        comment = str(w / (x0 - x)) + '|' + str(h / (y0 - y)) + '|' + str(x) + '|' + str(y)
+        comment = str(w / (x0 - x)) + ',' + str(h / (y0 - y)) + ',' + str(x) + ',' + str(y)
         # convert to png and add geotag to it under Comment
         call_script(basic_options + " " + tif_file)
         call_script("exiftool -q -overwrite_original_in_place -UserComment='" + comment + "' " + png_file + " 2> /dev/null")
