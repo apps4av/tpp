@@ -1,3 +1,5 @@
+Updates every 28 days
+
 # TPP
 FAA Terminal Procedures
 
