@@ -7,7 +7,6 @@ RUN apt install python3 python3-pip gdal-bin python3-gdal -y
 WORKDIR /tmp/
 
 COPY *.py /tmp/
-COPY avare_aptdiags.php /tmp/
 RUN ls /tmp/
 
 CMD ["python3", "tpp.py NE"]
